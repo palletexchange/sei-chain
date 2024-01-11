@@ -186,6 +186,7 @@ func (c *LoadTestClient) SendTxs(txQueue <-chan []byte, done <-chan struct{}, se
 	}
 }
 
+//nolint:staticcheck
 func (c *LoadTestClient) GetTxClient() typestx.ServiceClient {
 	rand.Seed(time.Now().Unix())
 	return c.TxClients[rand.Int()%len(c.TxClients)]
