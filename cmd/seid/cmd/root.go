@@ -260,6 +260,12 @@ func newApp(
 	// This makes it such that the wasm VM gas converts to sdk gas at a 6.66x rate vs that of the previous multiplier
 	wasmGasRegisterConfig.GasMultiplier = 21_000_000
 
+	occEnabled := true
+	occEnabledOpt := appOpts.Get(baseapp.FlagOccEnabled)
+	if occEnabledOpt != nil {
+		occEnabled = cast.ToBool(occEnabledOpt)
+	}
+
 	return app.New(
 		logger,
 		db,
@@ -292,7 +298,7 @@ func newApp(
 		baseapp.SetSnapshotInterval(cast.ToUint64(appOpts.Get(server.FlagStateSyncSnapshotInterval))),
 		baseapp.SetSnapshotKeepRecent(cast.ToUint32(appOpts.Get(server.FlagStateSyncSnapshotKeepRecent))),
 		baseapp.SetSnapshotDirectory(cast.ToString(appOpts.Get(server.FlagStateSyncSnapshotDir))),
-		baseapp.SetOccEnabled(cast.ToBool(appOpts.Get(baseapp.FlagOccEnabled))),
+		baseapp.SetOccEnabled(occEnabled),
 	)
 }
 
