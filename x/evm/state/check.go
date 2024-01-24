@@ -10,13 +10,6 @@ import (
 // Exist reports whether the given account exists in state.
 // Notably this should also return true for self-destructed accounts.
 func (s *DBImpl) Exist(addr common.Address) bool {
-	// if there is any entry under addr, it exists
-	store := s.k.PrefixStore(s.ctx, types.StateKey(addr))
-	iter := store.Iterator(nil, nil)
-	if iter.Valid() {
-		return true
-	}
-
 	// if there is code under addr, it exists
 	if s.GetCodeHash(addr).Cmp(common.Hash{}) != 0 {
 		return true
