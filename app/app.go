@@ -1301,14 +1301,15 @@ func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte) ([]*abci.E
 // ProcessTXsWithOCC runs the transactions concurrently via OCC
 func (app *App) ProcessTXsWithOCC(ctx sdk.Context, txs [][]byte) ([]*abci.ExecTxResult, sdk.Context) {
 	entries := make([]*sdk.DeliverTxEntry, 0, len(txs))
-	for txIndex, tx := range txs {
+	for _, tx := range txs {
 		deliverTxEntry := &sdk.DeliverTxEntry{Request: abci.RequestDeliverTx{Tx: tx}}
 		// get prefill estimate
-		estimatedWritesets, err := app.AccessControlKeeper.GenerateEstimatedWritesets(ctx, app.txDecoder, app.GetAnteDepGenerator(), txIndex, tx)
-		// if no error, then we assign the mapped writesets for prefill estimate
-		if err == nil {
-			deliverTxEntry.EstimatedWritesets = estimatedWritesets
-		}
+		// TODO: to re-enable this, we need a more streamlined code path that avoids potential aclkeeper writes
+		// estimatedWritesets, err := app.AccessControlKeeper.GenerateEstimatedWritesets(ctx, app.txDecoder, app.GetAnteDepGenerator(), txIndex, tx)
+		// // if no error, then we assign the mapped writesets for prefill estimate
+		// if err == nil {
+		// 	deliverTxEntry.EstimatedWritesets = estimatedWritesets
+		// }
 		entries = append(entries, deliverTxEntry)
 	}
 
