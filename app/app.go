@@ -959,10 +959,6 @@ func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.Res
 }
 
 func (app *App) PrepareProposalHandler(ctx sdk.Context, req *abci.RequestPrepareProposal) (*abci.ResponsePrepareProposal, error) {
-	if !app.checkTotalBlockGasWanted(ctx, req.Txs) {
-		metrics.IncrFailedTotalGasWantedCheck(string(req.GetProposerAddress()))
-		return &abci.ResponsePrepareProposal{}, fmt.Errorf("selected transactions exceed max block gas limit")
-	}
 	return &abci.ResponsePrepareProposal{
 		TxRecords: utils.Map(req.Txs, func(tx []byte) *abci.TxRecord {
 			return &abci.TxRecord{Action: abci.TxRecord_UNMODIFIED, Tx: tx}
