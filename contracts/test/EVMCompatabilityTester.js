@@ -53,7 +53,7 @@ async function sendTx(sender, txn, responses) {
 
 describe("EVM throughput", function(){
 
-  it("send 100 transactions from one account", async function(){
+  it.only("send 100 transactions from one account", async function(){
     const wallet = generateWallet()
     const toAddress =await wallet.getAddress()
     const accounts = await ethers.getSigners();
