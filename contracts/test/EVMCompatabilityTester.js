@@ -638,7 +638,7 @@ describe("EVM Test", function () {
         expect(isContract).to.be.true;
       });
 
-      it("advanced log topic filtering", async function() {
+      it.only("advanced log topic filtering", async function() {
         describe("log topic filtering", async function() {
           let blockStart = 10000000000000;
           let blockEnd = 0;
@@ -652,6 +652,8 @@ describe("EVM Test", function () {
               blockEnd = Math.max(blockEnd, receipt.blockNumber);
             }
           });
+          console.log("blockStart = ", blockStart)
+          console.log("blockEnd = ", blockEnd)
 
           it("Block range filter", async function () {
             const filter = {
