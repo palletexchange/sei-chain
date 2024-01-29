@@ -638,14 +638,13 @@ describe("EVM Test", function () {
         expect(isContract).to.be.true;
       });
 
-      it.only("advanced log topic filtering", async function() {
+      it("advanced log topic filtering", async function() {
         describe("log topic filtering", async function() {
           let blockStart = 10000000000000;
           let blockEnd = 0;
           let numTxs = 5;
           before(async function() {
             // Emit an event by making a transaction
-            console.log("evmTester = ", evmTester)
             for (let i = 0; i < numTxs; i++) {
               const txResponse = await evmTester.emitDummyEvent("test", i);
               const receipt = await txResponse.wait();
@@ -661,8 +660,6 @@ describe("EVM Test", function () {
             };
           
             const logs = await ethers.provider.getLogs(filter);
-            console.log(logs); // Logs from the contract
-          
             expect(logs).to.be.an('array');
             expect(logs.length).to.equal(numTxs);
           });
@@ -675,8 +672,6 @@ describe("EVM Test", function () {
             };
           
             const logs = await ethers.provider.getLogs(filter);
-            console.log(logs); // Logs from the contract
-          
             expect(logs).to.be.an('array');
             expect(logs.length).to.equal(numTxs);
           });
@@ -747,7 +742,6 @@ describe("EVM Test", function () {
               ]
             }
             const logs2 = await ethers.provider.getLogs(filter2);
-            console.log("logs2 = ", logs2)
             expect(logs2).to.be.an('array');
             expect(logs2.length).to.equal(2);
           });
