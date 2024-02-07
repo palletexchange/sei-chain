@@ -104,7 +104,7 @@ func startLoadtestWorkers(config Config) {
 	fmt.Printf("Starting loadtest producers and consumers\n")
 	txQueues := make([]chan SignedTx, len(keys))
 	for i := range txQueues {
-		txQueues[i] = make(chan SignedTx, 10)
+		txQueues[i] = make(chan SignedTx, 50)
 	}
 	done := make(chan struct{})
 	producerRateLimiter := rate.NewLimiter(rate.Limit(config.TargetTps), int(config.TargetTps))
