@@ -83,8 +83,8 @@ func (txClient *EvmTxClient) GenerateEvmSignedTx() *ethtypes.Transaction {
 
 	// Generate random amount to send
 	rand.Seed(time.Now().Unix())
-	value := big.NewInt(rand.Int63n(999999999) * 100000000000)
-	gasLimit := uint64(20000)
+	value := big.NewInt(rand.Int63n(999999) * 100000000000)
+	gasLimit := uint64(200000)
 	tx := ethtypes.NewTransaction(nextNonce, txClient.accountAddress, value, gasLimit, txClient.gasPrice, nil)
 	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(txClient.chainId), privateKey)
 	if err != nil {
