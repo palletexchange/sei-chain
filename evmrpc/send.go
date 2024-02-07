@@ -51,10 +51,6 @@ func NewSendAPI(tmClient rpcclient.Client, txConfig client.TxConfig, sendConfig 
 func (s *SendAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (hash common.Hash, err error) {
 	startTime := time.Now()
 	defer recordMetrics("eth_sendRawTransaction", startTime, err == nil)
-	if s.sendConfig.slow {
-		s.slowMu.Lock()
-		defer s.slowMu.Unlock()
-	}
 	tx := new(ethtypes.Transaction)
 	if err = tx.UnmarshalBinary(input); err != nil {
 		return

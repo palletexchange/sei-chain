@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -84,8 +83,8 @@ func (txClient *EvmTxClient) GenerateEvmSignedTx() *ethtypes.Transaction {
 
 	// Generate random amount to send
 	rand.Seed(time.Now().Unix())
-	value := big.NewInt(rand.Int63n(math.MaxInt64 - 1))
-	gasLimit := uint64(200000)
+	value := big.NewInt(rand.Int63n(999999999) * 100000000000)
+	gasLimit := uint64(20000)
 	tx := ethtypes.NewTransaction(nextNonce, txClient.accountAddress, value, gasLimit, txClient.gasPrice, nil)
 	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(txClient.chainId), privateKey)
 	if err != nil {
@@ -101,18 +100,18 @@ func (txClient *EvmTxClient) SendEvmTx(signedTx *ethtypes.Transaction, onSuccess
 	if err != nil {
 		fmt.Printf("Failed to send evm transaction: %v \n", err)
 	}
-
-	go func() {
-		success, errs := withRetry(func() error {
-			return txClient.GetTxReceipt(signedTx.Hash())
-		})
-		if success {
-			onSuccess()
-		} else {
-			fmt.Printf("Failed to get evm transaction receipt: %v \n", errs)
-			_ = txClient.ResetNonce()
-		}
-	}()
+	onSuccess()
+	//go func() {
+	//	success, errs := withRetry(func() error {
+	//		return txClient.GetTxReceipt(signedTx.Hash())
+	//	})
+	//	if success {
+	//		onSuccess()
+	//	} else {
+	//		fmt.Printf("Failed to get evm transaction receipt: %v \n", errs)
+	//		_ = txClient.ResetNonce()
+	//	}
+	//}()
 
 }
 
@@ -139,7 +138,6 @@ func (txClient *EvmTxClient) GetTxReceipt(txHash common.Hash) error {
 
 // ResetNonce need to be called when tx failed
 func (txClient *EvmTxClient) ResetNonce() error {
-
 	txClient.mtx.Lock()
 	defer txClient.mtx.Unlock()
 	client := GetNextEthClient(txClient.ethClients)
