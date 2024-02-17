@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"encoding/hex"
+	"fmt"
 	"sync"
 
 	"github.com/cosmos/cosmos-sdk/crypto/hd"
@@ -75,10 +76,21 @@ func MockAddressPair() (sdk.AccAddress, common.Address) {
 	return PrivateKeyToAddresses(MockPrivateKey())
 }
 
+func MockAddressPairUsingMnemonic(mnemonic string) (sdk.AccAddress, common.Address) {
+	return PrivateKeyToAddresses(MnemonicToPrivateKey(mnemonic))
+}
+
 func MockPrivateKey() cryptotypes.PrivKey {
 	// Generate a new Sei private key
 	entropySeed, _ := bip39.NewEntropy(256)
 	mnemonic, _ := bip39.NewMnemonic(entropySeed)
+	fmt.Println("mnemonic", mnemonic)
+	algo := hd.Secp256k1
+	derivedPriv, _ := algo.Derive()(mnemonic, "", "")
+	return algo.Generate()(derivedPriv)
+}
+
+func MnemonicToPrivateKey(mnemonic string) cryptotypes.PrivKey {
 	algo := hd.Secp256k1
 	derivedPriv, _ := algo.Derive()(mnemonic, "", "")
 	return algo.Generate()(derivedPriv)
@@ -87,6 +99,7 @@ func MockPrivateKey() cryptotypes.PrivKey {
 func PrivateKeyToAddresses(privKey cryptotypes.PrivKey) (sdk.AccAddress, common.Address) {
 	// Encode the private key to hex (i.e. what wallets do behind the scene when users reveal private keys)
 	testPrivHex := hex.EncodeToString(privKey.Bytes())
+	fmt.Println("testPrivHex", testPrivHex)
 
 	// Sign an Ethereum transaction with the hex private key
 	key, _ := crypto.HexToECDSA(testPrivHex)

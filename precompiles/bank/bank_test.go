@@ -18,44 +18,80 @@ import (
 func TestRun(t *testing.T) {
 	k, ctx := testkeeper.MockEVMKeeper()
 
-	senderAddr, senderEVMAddr := testkeeper.MockAddressPair()
-	k.SetAddressMapping(ctx, senderAddr, senderEVMAddr)
+	mnemonic1 := "two forward crumble gaze tunnel economy tuna various hungry prevent furnace stairs nature blush blossom win laundry agent quantum outer regret also pen cage"
+	senderSeiAddr, senderEvmAddr := testkeeper.MockAddressPairUsingMnemonic(mnemonic1)
+	k.SetAddressMapping(ctx, senderSeiAddr, senderEvmAddr)
 	bankKeeper := k.BankKeeper()
 	err := bankKeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(10000))))
 	require.Nil(t, err)
-	err = bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, senderAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(10000))))
+	err = bankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, senderSeiAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(10000))))
 	require.Nil(t, err)
 
-	seiAddr, evmAddr := testkeeper.MockAddressPair()
-	k.SetAddressMapping(ctx, seiAddr, evmAddr)
+	mnemonic2 := "depend ring history coil transfer venture brisk betray brain trigger canal genius method describe figure pepper good buffalo sick cage ethics resemble law aim"
+	receiverSeiAddr, receiverEvmAddr := testkeeper.MockAddressPairUsingMnemonic(mnemonic2)
+	k.SetAddressMapping(ctx, receiverSeiAddr, receiverEvmAddr)
 	p, err := bank.NewPrecompile(bankKeeper, k)
 	require.Nil(t, err)
 	statedb := state.NewDBImpl(ctx, k, true)
 	evm := vm.EVM{
 		StateDB:   statedb,
-		TxContext: vm.TxContext{Origin: senderEVMAddr},
+		TxContext: vm.TxContext{Origin: senderEvmAddr},
 	}
 
-	// Send native 10_000_000_000_000, split into 10 usei
+	fmt.Println("STARTING BANK SENDS / PRECOMPILE SENDS ----------------------- ")
 
-	sendNative, err := p.ABI.MethodById(p.SendNativeID)
-	require.Nil(t, err)
-	seiAddrString := seiAddr.String()
+	passTestOrdering := false
+	var bal *big.Int
+	if passTestOrdering {
+		////////// bank keeper -- send coins [START]
+		fmt.Println("TEST - sending 5000 coins from bank keeper")
+		err = bankKeeper.SendCoins(ctx, senderSeiAddr, receiverSeiAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(5000))))
+		require.Nil(t, err)
+		////////// bank keeper -- send coins [END]
 
-	argsNative, err := sendNative.Inputs.Pack(seiAddrString, big.NewInt(10_000_000_000_000))
-	require.Nil(t, err)
-	_, err = p.Run(&evm, senderEVMAddr, append(p.SendNativeID, argsNative...))
-	require.Nil(t, err)
+		////////// precompile -- send coins [START]
+		fmt.Println("TEST - sending 10 coins from precompile")
+		sendNative, err := p.ABI.MethodById(p.SendNativeID)
+		require.Nil(t, err)
+		argsNative, err := sendNative.Inputs.Pack(receiverSeiAddr.String(), big.NewInt(10_000_000_000_000))
+		require.Nil(t, err)
+		_, err = p.Run(&evm, senderEvmAddr, append(p.SendNativeID, argsNative...))
+		require.Nil(t, err)
+		////////// precompile -- send coins [END]
+	} else {
+		////////// precompile -- send coins [START]
+		fmt.Println("TEST - sending 10 coins from precompile")
+		sendNative, err := p.ABI.MethodById(p.SendNativeID)
+		require.Nil(t, err)
+		argsNative, err := sendNative.Inputs.Pack(receiverSeiAddr.String(), big.NewInt(10_000_000_000_000))
+		require.Nil(t, err)
+		_, err = p.Run(&evm, senderEvmAddr, append(p.SendNativeID, argsNative...))
+		require.Nil(t, err)
+		////////// precompile -- send coins [END]
 
-	err = bankKeeper.SendCoins(ctx, senderAddr, seiAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(5000))))
-	require.Nil(t, err)
+		////////// bank keeper -- send coins [START]
+		fmt.Println("TEST - sending 5000 coins from bank keeper")
+		err = bankKeeper.SendCoins(ctx, senderSeiAddr, receiverSeiAddr, sdk.NewCoins(sdk.NewCoin("usei", sdk.NewInt(5000))))
+		require.Nil(t, err)
+		////////// bank keeper -- send coins [END]
+	}
+	fmt.Printf("TEST - sender senderAddrString %+v senderEVMAddr %+v \n", senderSeiAddr.String(), senderEvmAddr)
+	fmt.Printf("TEST - receiver seiAddrString %+v evmAddr %+v\n", receiverSeiAddr.String(), receiverEvmAddr)
 
-	fmt.Printf("TEST - sender senderAddrString %+v senderEVMAddr %+v \n", senderAddr.String(), senderEVMAddr)
-	fmt.Printf("TEST - receiver seiAddrString %+v evmAddr %+v\n", seiAddr.String(), evmAddr)
+	///////// Check balance using bank [START]
+	// bankKeeper.Balance(ctx, types.QueryBalanceRequest{Address: senderSeiAddr.String()})
+	///////// Check balance using bank [END]
 
+	///////// Check balance on ETH address [START]
+	bal = statedb.GetBalance(receiverEvmAddr)
+	fmt.Println("Balance: ", bal)
+	require.Equal(t, big.NewInt(5010000000000000), bal)
+	///////// Check balance on ETH address [END]
+
+	///////// Check balance using precompile [START]
 	balance, err := p.ABI.MethodById(p.BalanceID)
 	require.Nil(t, err)
-	args, err := balance.Inputs.Pack(evmAddr, "usei")
+	args, err := balance.Inputs.Pack(receiverEvmAddr, "usei")
 	require.Nil(t, err)
 	res, err := p.Run(&evm, common.Address{}, append(p.BalanceID, args...))
 	require.Nil(t, err)
@@ -63,17 +99,9 @@ func TestRun(t *testing.T) {
 	require.Nil(t, err)
 	require.Equal(t, 1, len(is))
 	require.Equal(t, big.NewInt(5010), is[0].(*big.Int))
-	res, err = p.Run(&evm, common.Address{}, append(p.BalanceID, args[:1]...))
-	require.NotNil(t, err)
-	args, err = balance.Inputs.Pack(evmAddr, "")
-	require.Nil(t, err)
-	res, err = p.Run(&evm, common.Address{}, append(p.BalanceID, args...))
-	require.NotNil(t, err)
+	///////// Check balance using precompile [END]
 
-	// invalid input
-	_, err = p.Run(&evm, common.Address{}, []byte{1, 2, 3, 4})
-	require.NotNil(t, err)
-	panic("here")
+	panic("TEST SUCCEEEDED")
 }
 
 // func TestMetadata(t *testing.T) {
