@@ -7,12 +7,15 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/sei-protocol/sei-chain/precompiles/bank"
 	testkeeper "github.com/sei-protocol/sei-chain/testutil/keeper"
+	"github.com/sei-protocol/sei-chain/x/evm"
 	"github.com/sei-protocol/sei-chain/x/evm/state"
 	"github.com/sei-protocol/sei-chain/x/evm/types"
 	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 )
 
 func TestRun(t *testing.T) {
@@ -32,11 +35,13 @@ func TestRun(t *testing.T) {
 	k.SetAddressMapping(ctx, receiverSeiAddr, receiverEvmAddr)
 	p, err := bank.NewPrecompile(bankKeeper, k)
 	require.Nil(t, err)
-	statedb := state.NewDBImpl(ctx, k, true)
-	evm := vm.EVM{
+	statedb := state.NewDBImpl(ctx, k, false)
+	evmObj := vm.EVM{
 		StateDB:   statedb,
 		TxContext: vm.TxContext{Origin: senderEvmAddr},
 	}
+	m := evm.NewAppModule(nil, k)
+	m.BeginBlock(ctx, abci.RequestBeginBlock{})
 
 	fmt.Println("STARTING BANK SENDS / PRECOMPILE SENDS ----------------------- ")
 
@@ -55,7 +60,7 @@ func TestRun(t *testing.T) {
 		require.Nil(t, err)
 		argsNative, err := sendNative.Inputs.Pack(receiverSeiAddr.String(), big.NewInt(10_000_000_000_000))
 		require.Nil(t, err)
-		_, err = p.Run(&evm, senderEvmAddr, append(p.SendNativeID, argsNative...))
+		_, err = p.Run(&evmObj, senderEvmAddr, append(p.SendNativeID, argsNative...))
 		require.Nil(t, err)
 		////////// precompile -- send coins [END]
 	} else {
@@ -65,7 +70,7 @@ func TestRun(t *testing.T) {
 		require.Nil(t, err)
 		argsNative, err := sendNative.Inputs.Pack(receiverSeiAddr.String(), big.NewInt(10_000_000_000_000))
 		require.Nil(t, err)
-		_, err = p.Run(&evm, senderEvmAddr, append(p.SendNativeID, argsNative...))
+		_, err = p.Run(&evmObj, senderEvmAddr, append(p.SendNativeID, argsNative...))
 		require.Nil(t, err)
 		////////// precompile -- send coins [END]
 
@@ -77,6 +82,14 @@ func TestRun(t *testing.T) {
 	}
 	fmt.Printf("TEST - sender senderAddrString %+v senderEVMAddr %+v \n", senderSeiAddr.String(), senderEvmAddr)
 	fmt.Printf("TEST - receiver seiAddrString %+v evmAddr %+v\n", receiverSeiAddr.String(), receiverEvmAddr)
+
+	surplus, err := statedb.Finalize()
+	fmt.Println("Surplus: ", surplus)
+	require.Nil(t, err)
+	require.Equal(t, sdk.ZeroInt(), surplus)
+	k.AppendToEvmTxDeferredInfo(ctx.WithTxIndex(1), ethtypes.Bloom{}, common.Hash{}, surplus)
+	k.SetTxResults([]*abci.ExecTxResult{{Code: 0}, {Code: 0}})
+	m.EndBlock(ctx, abci.RequestEndBlock{})
 
 	///////// Check balance using bank [START]
 	// bankKeeper.Balance(ctx, types.QueryBalanceRequest{Address: senderSeiAddr.String()})
@@ -93,7 +106,7 @@ func TestRun(t *testing.T) {
 	require.Nil(t, err)
 	args, err := balance.Inputs.Pack(receiverEvmAddr, "usei")
 	require.Nil(t, err)
-	res, err := p.Run(&evm, common.Address{}, append(p.BalanceID, args...))
+	res, err := p.Run(&evmObj, common.Address{}, append(p.BalanceID, args...))
 	require.Nil(t, err)
 	is, err := balance.Outputs.Unpack(res)
 	require.Nil(t, err)
