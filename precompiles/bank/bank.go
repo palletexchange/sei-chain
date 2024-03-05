@@ -131,20 +131,26 @@ func (p Precompile) Run(evm *vm.EVM, caller common.Address, input []byte) (bz []
 }
 
 func (p Precompile) validateCaller(ctx sdk.Context, caller common.Address) error {
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: validating caller %s", caller.Hex()))
 	codeHash := p.evmKeeper.GetCodeHash(ctx, caller)
 	if p.evmKeeper.IsCodeHashWhitelistedForBankSend(ctx, codeHash) {
+		ctx.Logger().Info("EVMDEBUG: caller validated")
 		return nil
 	}
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: code hash %s is not validated", codeHash.Hex()))
 	return fmt.Errorf("caller %s with code hash %s is not whitelisted for arbirary bank send", caller.Hex(), codeHash.Hex())
 }
 
 func (p Precompile) send(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send called with %d args", len(args)))
 	pcommon.AssertArgsLength(args, 4)
 	denom := args[2].(string)
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send called with denom %s", denom))
 	if denom == "" {
 		return nil, errors.New("invalid denom")
 	}
 	amount := args[3].(*big.Int)
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send called with amount %s", amount))
 	if amount.Cmp(big.NewInt(0)) == 0 {
 		// short circuit
 		return method.Outputs.Pack(true)
@@ -152,15 +158,20 @@ func (p Precompile) send(ctx sdk.Context, method *abi.Method, args []interface{}
 	// TODO: it's possible to extend evm module's balance to handle non-usei tokens as well
 	senderSeiAddr, err := p.accAddressFromArg(ctx, args[0])
 	if err != nil {
+		ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send hit error when converting sender address %s", err))
 		return nil, err
 	}
 	receiverSeiAddr, err := p.accAddressFromArg(ctx, args[1])
 	if err != nil {
+		ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send hit error when converting receiver address %s", err))
 		return nil, err
 	}
+	ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send called from %s to %s\n", senderSeiAddr.String(), receiverSeiAddr.String()))
 	if err := p.bankKeeper.SendCoins(ctx, senderSeiAddr, receiverSeiAddr, sdk.NewCoins(sdk.NewCoin(denom, sdk.NewIntFromBigInt(amount)))); err != nil {
+		ctx.Logger().Info(fmt.Sprintf("EVMDEBUG: send hit error sending %s", err))
 		return nil, err
 	}
+	ctx.Logger().Info("EVMDEBUG: send successful")
 	return method.Outputs.Pack(true)
 }
 
