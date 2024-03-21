@@ -42,10 +42,6 @@ func (app *App) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) (res abci.Re
 }
 
 func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, error) {
-	startTime := time.Now()
-	defer func() {
-		fmt.Printf("PERF CheckTx latency=%v\n", time.Since(startTime))
-	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("CheckTx")
 	defer span.End()
 	return app.BaseApp.CheckTx(ctx, req)
