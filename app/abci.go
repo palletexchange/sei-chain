@@ -11,41 +11,39 @@ import (
 )
 
 func printTime(ctx sdk.Context, name string, startTime time.Time) {
-	ctx.Logger().Info("PERF", "name", name, "latency", time.Since(startTime).Milliseconds(), "height", ctx.BlockHeight())
+	cnt := ctx.Context().Value(txCount)
+	ctx.Logger().Info("PERF", "name", name, "latency", time.Since(startTime).Milliseconds(), "height", ctx.BlockHeight(), "txs", cnt)
 }
 
 func (app *App) BeginBlock(ctx sdk.Context, req abci.RequestBeginBlock) (res abci.ResponseBeginBlock) {
 	startTime := time.Now()
-	defer func() {
-		printTime(ctx, "BeginBlock", startTime)
-	}()
 	tracectx, topSpan := app.GetBaseApp().TracingInfo.Start("Block")
 	topSpan.SetAttributes(attribute.Int64("height", req.Header.Height))
 	app.GetBaseApp().TracingInfo.BlockSpan = &topSpan
 	app.GetBaseApp().TracingInfo.SetContext(tracectx)
 	_, beginBlockSpan := (*app.GetBaseApp().TracingInfo.Tracer).Start(app.GetBaseApp().TracingInfo.GetContext(), "BeginBlock")
 	defer beginBlockSpan.End()
+	printTime(ctx, "BeginBlock", startTime)
 	return app.BaseApp.BeginBlock(ctx, req)
 }
 
 func (app *App) MidBlock(ctx sdk.Context, height int64) []abci.Event {
 	startTime := time.Now()
-	defer func() {
-		printTime(ctx, "MidBlock", startTime)
-	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("MidBlock")
 	defer span.End()
-	return app.BaseApp.MidBlock(ctx, height)
+
+	res := app.BaseApp.MidBlock(ctx, height)
+	printTime(ctx, "MidBlock", startTime)
+	return res
 }
 
 func (app *App) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) (res abci.ResponseEndBlock) {
 	startTime := time.Now()
-	defer func() {
-		printTime(ctx, "EndBlock", startTime)
-	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("EndBlock")
 	defer span.End()
-	return app.BaseApp.EndBlock(ctx, req)
+	res = app.BaseApp.EndBlock(ctx, req)
+	printTime(ctx, "EndBlock", startTime)
+	return res
 }
 
 func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, error) {
@@ -68,9 +66,6 @@ func (app *App) DeliverTx(ctx sdk.Context, req abci.RequestDeliverTx, tx sdk.Tx,
 // DeliverTxBatch is not part of the ABCI specification, but this is here for code convention
 func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (res sdk.DeliverTxBatchResponse) {
 	startTime := time.Now()
-	defer func() {
-		printTime(ctx, "DeliverTxBatch", startTime)
-	}()
 	defer metrics.MeasureDeliverBatchTxDuration(time.Now())
 	// ensure we carry the initial context from tracer here
 	ctx = ctx.WithTraceSpanContext(app.GetBaseApp().TracingInfo.GetContext())
@@ -78,7 +73,9 @@ func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 	defer span.End()
 	// update context with trace span new context
 	ctx = ctx.WithTraceSpanContext(spanCtx)
-	return app.BaseApp.DeliverTxBatch(ctx, req)
+	res = app.BaseApp.DeliverTxBatch(ctx, req)
+	printTime(ctx, "DeliverTxBatch", startTime)
+	return res
 }
 
 func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) {
