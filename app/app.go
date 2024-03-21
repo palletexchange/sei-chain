@@ -1041,7 +1041,10 @@ func (app *App) ClearOptimisticProcessingInfo() {
 func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcessProposal) (*abci.ResponseProcessProposal, error) {
 	// TODO: this check decodes transactions which is redone in subsequent processing. We might be able to optimize performance
 	// by recording the decoding results and avoid decoding again later on.
-
+	startTime := time.Now()
+	defer func() {
+		printTime(ctx, "ProcessProposalHandler", startTime)
+	}()
 	if !app.checkTotalBlockGasWanted(ctx, req.Txs) {
 		metrics.IncrFailedTotalGasWantedCheck(string(req.GetProposerAddress()))
 		return &abci.ResponseProcessProposal{
@@ -1084,8 +1087,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	startTime := time.Now()
 	defer func() {
 		app.ClearOptimisticProcessingInfo()
-		duration := time.Since(startTime)
-		ctx.Logger().Info(fmt.Sprintf("FinalizeBlock took %dms", duration/time.Millisecond))
+		printTime(ctx, "FinalizeBlocker", startTime)
 	}()
 	if app.optimisticProcessingInfo != nil {
 		<-app.optimisticProcessingInfo.Completion
@@ -1377,7 +1379,7 @@ func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs [
 	// TODO after OCC release, remove this check and call ProcessTXsWithOCC directly
 	startTime := time.Now()
 	defer func() {
-		ctx.Logger().Info("PERF ExecuteTxsConcurrently", "latency", time.Since(startTime))
+		printTime(ctx, "ExecuteTxsConcurrently", startTime)
 	}()
 	if ctx.IsOCCEnabled() {
 		return app.ProcessTXsWithOCC(ctx, txs, typedTxs, absoluteTxIndices)
