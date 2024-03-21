@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -21,18 +22,30 @@ func (app *App) BeginBlock(ctx sdk.Context, req abci.RequestBeginBlock) (res abc
 }
 
 func (app *App) MidBlock(ctx sdk.Context, height int64) []abci.Event {
+	startTime := time.Now()
+	defer func() {
+		ctx.Logger().Info("PERF MidBlock", "latency", time.Since(startTime))
+	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("MidBlock")
 	defer span.End()
 	return app.BaseApp.MidBlock(ctx, height)
 }
 
 func (app *App) EndBlock(ctx sdk.Context, req abci.RequestEndBlock) (res abci.ResponseEndBlock) {
+	startTime := time.Now()
+	defer func() {
+		ctx.Logger().Info("PERF EndBlock", "latency", time.Since(startTime))
+	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("EndBlock")
 	defer span.End()
 	return app.BaseApp.EndBlock(ctx, req)
 }
 
 func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTx) (*abci.ResponseCheckTxV2, error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("PERF CheckTx latency=%v\n", time.Since(startTime))
+	}()
 	_, span := app.GetBaseApp().TracingInfo.Start("CheckTx")
 	defer span.End()
 	return app.BaseApp.CheckTx(ctx, req)
@@ -51,6 +64,10 @@ func (app *App) DeliverTx(ctx sdk.Context, req abci.RequestDeliverTx, tx sdk.Tx,
 
 // DeliverTxBatch is not part of the ABCI specification, but this is here for code convention
 func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (res sdk.DeliverTxBatchResponse) {
+	startTime := time.Now()
+	defer func() {
+		ctx.Logger().Info("PERF DeliverTxBatch", "latency", time.Since(startTime))
+	}()
 	defer metrics.MeasureDeliverBatchTxDuration(time.Now())
 	// ensure we carry the initial context from tracer here
 	ctx = ctx.WithTraceSpanContext(app.GetBaseApp().TracingInfo.GetContext())
@@ -62,6 +79,10 @@ func (app *App) DeliverTxBatch(ctx sdk.Context, req sdk.DeliverTxBatchRequest) (
 }
 
 func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) {
+	startTime := time.Now()
+	defer func() {
+		fmt.Printf("PERF CheckTx latency=%v\n", time.Since(startTime))
+	}()
 	if app.GetBaseApp().TracingInfo.BlockSpan != nil {
 		defer (*app.GetBaseApp().TracingInfo.BlockSpan).End()
 	}
