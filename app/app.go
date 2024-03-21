@@ -1087,7 +1087,6 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	startTime := time.Now()
 	defer func() {
 		app.ClearOptimisticProcessingInfo()
-		printTime(ctx, "FinalizeBlocker", startTime)
 	}()
 	if app.optimisticProcessingInfo != nil {
 		<-app.optimisticProcessingInfo.Completion
@@ -1108,6 +1107,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	app.SetDeliverStateToCommit()
 	appHash := app.WriteStateToCommitAndGetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp)
+	printTime(ctx, "FinalizeBlocker", startTime)
 	return &resp, nil
 }
 
