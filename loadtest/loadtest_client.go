@@ -45,6 +45,7 @@ type LoadTestClient struct {
 	// Messages that has to be sent from the admin account
 	isAdminMessageMapping map[string]bool
 	mtx                   *sync.RWMutex
+	clientIndex           int
 }
 
 func NewLoadTestClient(config Config) *LoadTestClient {
@@ -267,6 +268,23 @@ func (c *LoadTestClient) SendTxs(
 			semaphore.Release(1)
 		}
 	}
+}
+
+func (c *LoadTestClient) GetNextClient() typestx.ServiceClient {
+	var index int
+	c.mtx.Lock()
+	index = c.clientIndex
+	c.clientIndex++
+	if c.clientIndex >= len(c.TxClients) {
+		c.clientIndex = 0
+	}
+	c.mtx.Unlock()
+	numClients := len(c.TxClients)
+	if numClients <= 0 {
+		panic("There's no Tx client available, make sure your connection are valid")
+	}
+	rand.Seed(time.Now().Unix())
+	return c.TxClients[index]
 }
 
 //nolint:staticcheck
