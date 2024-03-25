@@ -13,7 +13,7 @@ func SendTx(
 	mode typestx.BroadcastMode,
 	loadtestClient LoadTestClient,
 ) bool {
-	grpcRes, err := loadtestClient.GetNextClient().BroadcastTx(
+	grpcRes, err := loadtestClient.GetRandomClient().BroadcastTx(
 		ctx,
 		&typestx.BroadcastTxRequest{
 			Mode:    mode,

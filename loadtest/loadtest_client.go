@@ -45,7 +45,7 @@ type LoadTestClient struct {
 	// Messages that has to be sent from the admin account
 	isAdminMessageMapping map[string]bool
 	mtx                   *sync.RWMutex
-	clientIndex           int
+	clientIndex           int32
 }
 
 func NewLoadTestClient(config Config) *LoadTestClient {
@@ -270,25 +270,17 @@ func (c *LoadTestClient) SendTxs(
 	}
 }
 
+func (c *LoadTestClient) GetClientAt(i int) typestx.ServiceClient {
+	return c.TxClients[i]
+}
+
 func (c *LoadTestClient) GetNextClient() typestx.ServiceClient {
-	var index int
-	c.mtx.Lock()
-	index = c.clientIndex
-	c.clientIndex++
-	if c.clientIndex >= len(c.TxClients) {
-		c.clientIndex = 0
-	}
-	c.mtx.Unlock()
-	numClients := len(c.TxClients)
-	if numClients <= 0 {
-		panic("There's no Tx client available, make sure your connection are valid")
-	}
-	rand.Seed(time.Now().Unix())
-	return c.TxClients[index]
+	index := atomic.AddInt32(&c.clientIndex, 1) - 1 // Atomic increment; adjust for zero-based index by subtracting 1
+	return c.TxClients[int(index)%len(c.TxClients)]
 }
 
 //nolint:staticcheck
-func (c *LoadTestClient) GetTxClient() typestx.ServiceClient {
+func (c *LoadTestClient) GetRandomClient() typestx.ServiceClient {
 	numClients := len(c.TxClients)
 	if numClients <= 0 {
 		panic("There's no Tx client available, make sure your connection are valid")
