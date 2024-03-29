@@ -1430,6 +1430,7 @@ func (app *App) ProcessTXsWithOCC(ctx sdk.Context, txs [][]byte, typedTxs []sdk.
 
 	batchResult := app.DeliverTxBatch(ctx, sdk.DeliverTxBatchRequest{TxEntries: entries})
 
+	appendStart := time.Now()
 	execResults := make([]*abci.ExecTxResult, 0, len(batchResult.Results))
 	for _, r := range batchResult.Results {
 		metrics.IncrTxProcessTypeCounter(metrics.OCC_CONCURRENT)
@@ -1446,6 +1447,7 @@ func (app *App) ProcessTXsWithOCC(ctx sdk.Context, txs [][]byte, typedTxs []sdk.
 			Codespace: r.Response.Codespace,
 		})
 	}
+	fmt.Printf("[Debug] OCC append %d result took %s \n", len(txs), time.Since(appendStart))
 
 	return execResults, ctx
 }
@@ -1528,12 +1530,13 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req BlockProcessRequ
 	events = append(events, midBlockEvents...)
 	fmt.Printf("[Debug] MidBlock of ProcessBlock took %s\n", time.Since(midBlockStart))
 
+	executeStart := time.Now()
 	otherResults, ctx := app.ExecuteTxsConcurrently(ctx, otherTxs, otherTypedTxs, otherIndices)
-	endBlockStart := time.Now()
-	
 	for relativeOtherIndex, originalIndex := range otherIndices {
 		txResults[originalIndex] = otherResults[relativeOtherIndex]
 	}
+	fmt.Printf("[Debug] ExecuteTxsConcurrently of ProcessBlock took %s\n", time.Since(executeStart))
+
 	app.EvmKeeper.SetTxResults(txResults)
 
 	endBlockStart := time.Now()
