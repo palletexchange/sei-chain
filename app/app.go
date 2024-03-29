@@ -1477,6 +1477,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req BlockProcessRequ
 		fmt.Printf("[Debug] ProcessBlock for height %d took %s\n", req.GetHeight(), time.Since(startTime))
 	}()
 
+	beginBlockStart := time.Now()
 	ctx = ctx.WithIsOCCEnabled(app.OccEnabled())
 	goCtx := app.decorateContextWithDexMemState(ctx.Context())
 	ctx = ctx.WithContext(goCtx)
@@ -1505,7 +1506,9 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req BlockProcessRequ
 	}
 	beginBlockResp := app.BeginBlock(ctx, beginBlockReq)
 	events = append(events, beginBlockResp.Events...)
+	fmt.Printf("[Debug] BeginBlock of ProcessBlock took %s\n", time.Since(beginBlockStart))
 
+	midBlockStart := time.Now()
 	txResults := make([]*abci.ExecTxResult, len(txs))
 	typedTxs := app.DecodeTransactionsConcurrently(ctx, txs)
 
@@ -1523,8 +1526,10 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req BlockProcessRequ
 
 	midBlockEvents := app.MidBlock(ctx, req.GetHeight())
 	events = append(events, midBlockEvents...)
+	fmt.Printf("[Debug] MidBlock of ProcessBlock took %s\n", time.Since(midBlockStart))
 
 	otherResults, ctx := app.ExecuteTxsConcurrently(ctx, otherTxs, otherTypedTxs, otherIndices)
+	endBlockStart := time.Now()
 	for relativeOtherIndex, originalIndex := range otherIndices {
 		txResults[originalIndex] = otherResults[relativeOtherIndex]
 	}
@@ -1539,6 +1544,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req BlockProcessRequ
 	})
 
 	events = append(events, endBlockResp.Events...)
+	fmt.Printf("[Debug] EndBlock of ProcessBlock took %s\n", time.Since(endBlockStart))
 	return events, txResults, endBlockResp, nil
 }
 
