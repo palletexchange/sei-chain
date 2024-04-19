@@ -60,6 +60,7 @@ var upgradesList = []string{
 	"3.0.6",
 	"3.0.7",
 	"3.0.8",
+	"3.9.0",
 	// We change naming convention to prepend version with "v"
 	"v3.0.9",
 	"v3.1.1",
