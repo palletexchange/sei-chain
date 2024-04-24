@@ -81,8 +81,6 @@ describe("CW20 to ERC20 Pointer", function () {
             expect(balanceAfter).to.equal((parseInt(balanceBefore) + 100).toString())
         });
 
-        //TODO: other execute methods
-
         it("should increase and decrease allowance for a spender", async function() {
             const spender = accounts[1].seiAddress
             const result = await executeWasm(cw20Pointer, { increase_allowance: { spender: spender, amount: "300" } });
@@ -99,6 +97,42 @@ describe("CW20 to ERC20 Pointer", function () {
             console.log(allowance)
             expect(allowance.data.allowance).to.equal("0");
         });
+
+        it("should transfer from token", async function() {
+            const owner = accounts[0].seiAddress;
+            const recipient = accounts[2].seiAddress;
+            const spender = accounts[1].seiAddress;
+            const transferAmount = "100";
+        
+            await executeWasm(cw20Pointer, { increase_allowance: { spender: spender, amount: "200" } });
+        
+            await executeWasm(cw20Pointer, { transfer_from: { owner: owner, recipient: recipient, amount: transferAmount } });
+        
+            const recipientBalance = await queryWasm(cw20Pointer, "balance", { address: recipient });
+            expect(recipientBalance.data.balance).to.equal(transferAmount);
+        });
+        
+
+        it("should send token", async function() {
+            const contractRecipient = "";
+            const amountToSend = "100";
+        
+            await executeWasm(cw20Pointer, { send: { contract: contractRecipient, amount: amountToSend } });
+        
+        });
+
+        it("should allow send_from by an approved spender to a contract", async function() {
+            const owner = accounts[0].seiAddress;
+            const contractRecipient =  ""
+            const spender = accounts[1].seiAddress;
+            const amountToSend = "100";
+        
+            await executeWasm(cw20Pointer, { increase_allowance: { spender: spender, amount: "500" } });
+        
+            await executeWasm(cw20Pointer, { send_from: { owner: owner, contract: contractRecipient, amount: amountToSend } });
+        
+        });
+        
 
     })
 
