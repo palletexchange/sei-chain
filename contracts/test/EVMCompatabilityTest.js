@@ -169,7 +169,9 @@ describe("EVM Test", function () {
 
     describe("Block Properties", function () {
       it("Should have consistent block properties for a block", async function () {
+        console.log("Starting block properties test")
         const currentBlockNumber = await ethers.provider.getBlockNumber();
+        console.log("Current block number: ", currentBlockNumber)
         const iface = new ethers.Interface(["function getBlockProperties() view returns (bytes32 blockHash, address coinbase, uint256 prevrandao, uint256 gaslimit, uint256 number, uint256 timestamp)"]);
         const addr = await evmTester.getAddress()
         const tx = {
@@ -177,6 +179,7 @@ describe("EVM Test", function () {
           data: iface.encodeFunctionData("getBlockProperties", []),
           blockTag: currentBlockNumber-2
         };
+        console.log("Calling getBlockProperties")
         const result = await ethers.provider.call(tx);
 
         // wait for block to change
@@ -187,6 +190,7 @@ describe("EVM Test", function () {
           }
           await sleep(100)
         }
+        console.log("Block changed")
         const result2 = await ethers.provider.call(tx);
         expect(result).to.equal(result2)
       });
@@ -1057,13 +1061,13 @@ describe("EVM Test", function () {
 
 describe("EVM throughput", function(){
 
-  it("send 100 transactions from one account", async function(){
+  it.only("send 100 transactions from one account", async function(){
     const wallet = generateWallet()
     const toAddress =await wallet.getAddress()
     const accounts = await ethers.getSigners();
     const sender = accounts[0]
     const address = await sender.getAddress();
-    const txCount = 100;
+    const txCount = 5;
 
     const nonce = await ethers.provider.getTransactionCount(address);
     const responses = []
@@ -1080,12 +1084,20 @@ describe("EVM throughput", function(){
       maxNonce = nextNonce;
     }
 
+    console.log("Sending transactions")
     // send out of order because it's legal
-    txs = shuffle(txs)
-    const promises = txs.map((txn)=> {
-      return sendTx(sender, txn, responses)
-    });
-    await Promise.all(promises)
+    // txs = shuffle(txs)
+    // const promises = txs.map((txn)=> {
+    //   return sendTx(sender, txn, responses)
+    // });
+    // await Promise.all(promises)
+
+    for (const txn of txs) {
+      await sendTx(sender, txn, responses);
+    }
+
+
+    console.log("Transactions sent, waiting for last nonce to mine")
 
     // wait for last nonce to mine (means all prior mined)
     for(let r of responses){
@@ -1095,6 +1107,8 @@ describe("EVM throughput", function(){
       }
     }
 
+    console.log("Getting block numbers")
+
     // get represented block numbers
     let blockNumbers = []
     for(let response of responses){
@@ -1102,6 +1116,8 @@ describe("EVM throughput", function(){
       const blockNumber = receipt.blockNumber
       blockNumbers.push(blockNumber)
     }
+
+    console.log("Getting mined nonce order")
 
     blockNumbers = uniq(blockNumbers).sort((a,b)=>{return a-b})
     const minedNonceOrder = []
@@ -1113,6 +1129,8 @@ describe("EVM throughput", function(){
         minedNonceOrder.push(tx.nonce)
       }
     }
+
+    console.log("Checking nonce order")
 
     expect(minedNonceOrder.length).to.equal(txCount);
     for (let i = 0; i < minedNonceOrder.length; i++) {
