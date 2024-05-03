@@ -313,7 +313,7 @@ func appExport(
 	jailAllowedAddrs []string,
 	appOpts servertypes.AppOptions,
 ) (servertypes.ExportedApp, error) {
-	logger.Info("UDAYDEBUG AppExport\n")
+	logger.Info("UDAYDEBUG AppExport")
 	encCfg := app.MakeEncodingConfig()
 	encCfg.Marshaler = codec.NewProtoCodec(encCfg.InterfaceRegistry)
 
@@ -325,8 +325,9 @@ func appExport(
 	}
 
 	if height != -1 {
-		logger.Info("UDAYDEBUG Loading new app\n")
+		logger.Info("UDAYDEBUG Loading new app")
 		exportableApp = app.New(logger, db, traceStore, false, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
+		logger.Info("UDAYDEBUG Loaded new app, loading height", "height", height)
 		if err := exportableApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
