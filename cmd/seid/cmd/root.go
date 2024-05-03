@@ -313,7 +313,7 @@ func appExport(
 	jailAllowedAddrs []string,
 	appOpts servertypes.AppOptions,
 ) (servertypes.ExportedApp, error) {
-	fmt.Printf("UDAYDEBUG AppExport\n")
+	logger.Info("UDAYDEBUG AppExport\n")
 	encCfg := app.MakeEncodingConfig()
 	encCfg.Marshaler = codec.NewProtoCodec(encCfg.InterfaceRegistry)
 
@@ -325,16 +325,16 @@ func appExport(
 	}
 
 	if height != -1 {
-		fmt.Printf("UDAYDEBUG Loading new app\n")
+		logger.Info("UDAYDEBUG Loading new app\n")
 		exportableApp = app.New(logger, db, traceStore, false, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
 		if err := exportableApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
-		fmt.Printf("UDAYDEBUG Loaded height %d\n", height)
+		logger.Info("UDAYDEBUG Loaded height", "height", height)
 	} else {
 		exportableApp = app.New(logger, db, traceStore, true, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
 	}
-	fmt.Printf("UDAY DEBUG Exporting state and validators %d\n", height)
+	logger.Info("UDAY DEBUG Exporting state and validators", "height", height)
 	return exportableApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
 }
 
