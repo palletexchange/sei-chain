@@ -919,6 +919,7 @@ func New(
 	}
 
 	loadVersionHandler := func() error {
+		logger.Info("Loading latest version")
 		if err := app.LoadLatestVersion(); err != nil {
 			tmos.Exit(err.Error())
 		}
