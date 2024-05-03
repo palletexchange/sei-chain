@@ -324,15 +324,16 @@ func appExport(
 	}
 
 	if height != -1 {
+		fmt.Printf("UDAYDEBUG Loading new app\n")
 		exportableApp = app.New(logger, db, traceStore, false, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
 		if err := exportableApp.LoadHeight(height); err != nil {
 			return servertypes.ExportedApp{}, err
 		}
-		fmt.Printf("Loaded height %d\n", height)
+		fmt.Printf("UDAYDEBUG Loaded height %d\n", height)
 	} else {
 		exportableApp = app.New(logger, db, traceStore, true, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
 	}
-	fmt.Printf("Exporting state and validators %d\n", height)
+	fmt.Printf("UDAY DEBUG Exporting state and validators %d\n", height)
 	return exportableApp.ExportAppStateAndValidators(forZeroHeight, jailAllowedAddrs)
 }
 
