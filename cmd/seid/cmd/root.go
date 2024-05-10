@@ -323,6 +323,7 @@ func appExport(
 		return servertypes.ExportedApp{}, errors.New("application home not set")
 	}
 
+	fmt.Printf("DEBUG - appExport LoadHeight\n")
 	if height != -1 {
 		exportableApp = app.New(logger, db, traceStore, false, map[int64]bool{}, cast.ToString(appOpts.Get(flags.FlagHome)), uint(1), true, nil, encCfg, app.GetWasmEnabledProposals(), appOpts, app.EmptyWasmOpts, app.EmptyACLOpts)
 		if err := exportableApp.LoadHeight(height); err != nil {
