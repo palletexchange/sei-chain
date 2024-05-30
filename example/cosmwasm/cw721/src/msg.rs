@@ -70,6 +70,11 @@ pub enum EvmQuery {
         contract_address: String,
         token_id: String,
     },
+    Erc721BalanceOf {
+        caller: String,
+        contract_address: String,
+        owner: String,
+    },
     Erc721RoyaltyInfo {
         caller: String,
         contract_address: String,
@@ -84,6 +89,17 @@ pub enum EvmQuery {
     Erc721TotalSupply {
         caller: String,
         contract_address: String,
+    },
+    Erc721TokenByIndex {
+        caller: String,
+        contract_address: String,
+        index: Uint128,
+    },
+    Erc721TokenOfOwnerByIndex {
+        caller: String,
+        contract_address: String,
+        owner: String,
+        index: Uint128,
     },
 }
 
@@ -119,6 +135,11 @@ pub struct Erc721UriResponse {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Erc721BalanceOfResponse {
+    pub balance: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Erc721RoyaltyInfoResponse {
     pub receiver: String,
     pub royalty_amount: Uint128,
@@ -132,6 +153,16 @@ pub struct SupportsInterfaceResponse {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct Erc721TotalSupplyResponse {
     pub supply: Uint128,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Erc721TokenByIndexResponse {
+    pub token_id: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+pub struct Erc721TokenOfOwnerByIndexResponse {
+    pub token_id: String,
 }
 
 // implement custom query
