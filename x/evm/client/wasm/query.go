@@ -516,6 +516,41 @@ func (h *EVMQueryHandler) HandleERC721Uri(ctx sdk.Context, caller string, contra
 	return json.Marshal(response)
 }
 
+func (h *EVMQueryHandler) HandleERC721BalanceOf(ctx sdk.Context, caller string, contractAddress string, owner string) ([]byte, error) {
+	callerAddr, err := sdk.AccAddressFromBech32(caller)
+	if err != nil {
+		return nil, err
+	}
+	ownerAddr, err := sdk.AccAddressFromBech32(owner)
+	if err != nil {
+		return nil, err
+	}
+	evmAddr, found := h.k.GetEVMAddress(ctx, ownerAddr)
+	if !found {
+		return nil, fmt.Errorf("address %s is not associated", owner)
+	}
+	contract := common.HexToAddress(contractAddress)
+	abi, err := cw721.Cw721MetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+
+	bz, err := abi.Pack("balanceOf", evmAddr)
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.k.StaticCallEVM(ctx, callerAddr, &contract, bz)
+	if err != nil {
+		return nil, err
+	}
+	unpacked, err := abi.Unpack("balanceOf", res)
+	if err != nil {
+		return nil, err
+	}
+	balance := sdk.NewIntFromBigInt(unpacked[0].(*big.Int))
+	return json.Marshal(bindings.ERC721BalanceOfResponse{Balance: &balance})
+}
+
 func (h *EVMQueryHandler) HandleGetEvmAddress(ctx sdk.Context, seiAddr string) ([]byte, error) {
 	addr, err := sdk.AccAddressFromBech32(seiAddr)
 	if err != nil {
@@ -567,6 +602,70 @@ func (h *EVMQueryHandler) HandleERC721RoyaltyInfo(ctx sdk.Context, caller string
 	}
 	royaltyAmount := sdk.NewIntFromBigInt(typed[1].(*big.Int))
 	response := bindings.ERC721RoyaltyInfoResponse{Receiver: receiver, RoyaltyAmount: &royaltyAmount}
+	return json.Marshal(response)
+}
+
+func (h *EVMQueryHandler) HandleERC721TokenByIndex(ctx sdk.Context, caller string, contractAddress string, index *sdk.Int) ([]byte, error) {
+	callerAddr, err := sdk.AccAddressFromBech32(caller)
+	if err != nil {
+		return nil, err
+	}
+	contract := common.HexToAddress(contractAddress)
+	abi, err := cw721.Cw721MetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	bz, err := abi.Pack("tokenByIndex", index.BigInt())
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.k.StaticCallEVM(ctx, callerAddr, &contract, bz)
+	if err != nil {
+		return nil, err
+	}
+	typed, err := abi.Unpack("tokenByIndex", res)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenId := sdk.NewIntFromBigInt(typed[0].(*big.Int))
+	response := bindings.ERC721TokenByIndexResponse{TokenId: &tokenId}
+	return json.Marshal(response)
+}
+
+func (h *EVMQueryHandler) HandleERC721TokenOfOwnerByIndex(ctx sdk.Context, caller string, contractAddress string, owner string, index *sdk.Int) ([]byte, error) {
+	callerAddr, err := sdk.AccAddressFromBech32(caller)
+	if err != nil {
+		return nil, err
+	}
+	ownerAddr, err := sdk.AccAddressFromBech32(owner)
+	if err != nil {
+		return nil, err
+	}
+	evmAddr, found := h.k.GetEVMAddress(ctx, ownerAddr)
+	if !found {
+		return nil, fmt.Errorf("address %s is not associated", owner)
+	}
+	contract := common.HexToAddress(contractAddress)
+	abi, err := cw721.Cw721MetaData.GetAbi()
+	if err != nil {
+		return nil, err
+	}
+	bz, err := abi.Pack("tokenOfOwnerByIndex", evmAddr, index.BigInt())
+	if err != nil {
+		return nil, err
+	}
+	res, err := h.k.StaticCallEVM(ctx, callerAddr, &contract, bz)
+	if err != nil {
+		return nil, err
+	}
+	typed, err := abi.Unpack("tokenOfOwnerByIndex", res)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenId := sdk.NewIntFromBigInt(typed[0].(*big.Int))
+	response := bindings.ERC721TokenOfOwnerByIndexResponse{TokenId: &tokenId}
 	return json.Marshal(response)
 }
 

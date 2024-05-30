@@ -21,7 +21,10 @@ type SeiEVMQuery struct {
 	ERC721TotalSupply           *ERC721TotalSupplyRequest           `json:"erc721_total_supply,omitempty"`
 	ERC721NameSymbol            *ERC721NameSymbolRequest            `json:"erc721_name_symbol,omitempty"`
 	ERC721Uri                   *ERC721UriRequest                   `json:"erc721_uri,omitempty"`
+	ERC721BalanceOf             *ERC721BalanceOfRequest             `json:"erc721_balance_of,omitempty"`
 	ERC721RoyaltyInfo           *ERC721RoyaltyInfoRequest           `json:"erc721_royalty_info,omitempty"`
+	ERC721TokenByIndex          *ERC721TokenByIndexRequest          `json:"erc721_token_by_index,omitempty"`
+	ERC721TokenOfOwnerByIndex   *ERC721TokenOfOwnerByIndexRequest   `json:"erc721_token_of_owner_by_index,omitempty"`
 	GetEvmAddress               *GetEvmAddressRequest               `json:"get_evm_address,omitempty"`
 	GetSeiAddress               *GetSeiAddressRequest               `json:"get_sei_address,omitempty"`
 	SupportsInterface           *SupportsInterfaceRequest           `json:"supports_interface,omitempty"`
@@ -116,11 +119,30 @@ type ERC721UriRequest struct {
 	TokenID         string `json:"token_id"`
 }
 
+type ERC721BalanceOfRequest struct {
+	Caller          string `json:"caller"`
+	ContractAddress string `json:"contract_address"`
+	Owner           string `json:"owner"`
+}
+
 type ERC721RoyaltyInfoRequest struct {
 	Caller          string   `json:"caller"`
 	ContractAddress string   `json:"contract_address"`
 	TokenID         string   `json:"token_id"`
 	SalePrice       *sdk.Int `json:"sale_price"`
+}
+
+type ERC721TokenByIndexRequest struct {
+	Caller          string   `json:"caller"`
+	ContractAddress string   `json:"contract_address"`
+	Index           *sdk.Int   `json:"index"`
+}
+
+type ERC721TokenOfOwnerByIndexRequest struct {
+	Caller          string   `json:"caller"`
+	ContractAddress string   `json:"contract_address"`
+	Owner           string   `json:"owner"`
+	Index           *sdk.Int `json:"index"`
 }
 
 type GetEvmAddressRequest struct {
@@ -185,9 +207,21 @@ type ERC721UriResponse struct {
 	Uri string `json:"uri"`
 }
 
+type ERC721BalanceOfResponse struct {
+	Balance *sdk.Int `json:"balance"`
+}
+
 type ERC721RoyaltyInfoResponse struct {
 	Receiver      string   `json:"receiver"`
 	RoyaltyAmount *sdk.Int `json:"royalty_amount"`
+}
+
+type ERC721TokenByIndexResponse struct {
+	TokenId *sdk.Int `json:"token_id"`
+}
+
+type ERC721TokenOfOwnerByIndexResponse struct {
+	TokenId *sdk.Int `json:"token_id"`
 }
 
 type GetEvmAddressResponse struct {
