@@ -248,9 +248,18 @@ func (qp QueryPlugin) HandleEVMQuery(ctx sdk.Context, queryData json.RawMessage)
 	case parsedQuery.ERC721Uri != nil:
 		c := parsedQuery.ERC721Uri
 		return qp.evmHandler.HandleERC721Uri(ctx, c.Caller, c.ContractAddress, c.TokenID)
+	case parsedQuery.ERC721BalanceOf != nil:
+		c := parsedQuery.ERC721BalanceOf
+		return qp.evmHandler.HandleERC721BalanceOf(ctx, c.Caller, c.ContractAddress, c.Owner)
 	case parsedQuery.ERC721RoyaltyInfo != nil:
 		c := parsedQuery.ERC721RoyaltyInfo
 		return qp.evmHandler.HandleERC721RoyaltyInfo(ctx, c.Caller, c.ContractAddress, c.TokenID, c.SalePrice)
+	case parsedQuery.ERC721TokenByIndex != nil:
+		c := parsedQuery.ERC721TokenByIndex
+		return qp.evmHandler.HandleERC721TokenByIndex(ctx, c.Caller, c.ContractAddress, c.Index)
+	case parsedQuery.ERC721TokenOfOwnerByIndex != nil:
+		c := parsedQuery.ERC721TokenOfOwnerByIndex
+		return qp.evmHandler.HandleERC721TokenOfOwnerByIndex(ctx, c.Caller, c.ContractAddress, c.Owner, c.Index)
 	case parsedQuery.GetEvmAddress != nil:
 		c := parsedQuery.GetEvmAddress
 		return qp.evmHandler.HandleGetEvmAddress(ctx, c.SeiAddress)

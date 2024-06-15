@@ -13,6 +13,7 @@ use crate::state::ERC721_ADDRESS;
 use std::str::FromStr;
 
 const ERC2981_ID: &str = "0x2a55205a";
+const ERC721_ENUMERABLE_ID: &str = "0x780e9d63";
 
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
@@ -346,33 +347,96 @@ pub fn query_tokens(
     limit: Option<u32>,
 ) -> StdResult<TokensResponse> {
     let erc_addr = ERC721_ADDRESS.load(deps.storage)?;
+    let env_addr = env.clone().contract.address.into_string();
     let querier = EvmQuerier::new(&deps.querier);
-    let num_tokens = query_num_tokens(deps, env.clone())?.count;
     let start_after_id = Int256::from_str(&start_after.unwrap_or("-1".to_string()))?;
+    let mut last_token_id = Int256::from_str(&("-1".to_string()))?;
     let limit = limit.unwrap_or(DEFAULT_LIMIT).min(MAX_LIMIT) as usize;
 
-    let mut cur = Int256::zero();
-    let mut counter = 0;
-    let mut tokens: Vec<String> = vec![];
-    while counter < num_tokens && tokens.len() < limit {
-        let cur_str = cur.to_string();
-        let t_owner = match querier.erc721_owner(
-            env.clone().contract.address.into_string(),
-            erc_addr.clone(),
-            cur_str.to_string(),
-        ) {
-            Ok(res) => res.owner,
-            Err(_) => "".to_string(),
-        };
-        if t_owner != "" {
-            counter += 1;
-            if (owner.is_empty() || t_owner == owner) && cur > start_after_id {
-                tokens.push(cur_str);
-            }
-        }
-        cur += Int256::one();
+    // Get the total number of tokens in our result set.
+    let num_tokens = match owner.is_empty() {
+        true => query_num_tokens(deps, env.clone())?.count,
+        false => query_balance_of(deps, env.clone(), owner.to_string())?.count,
+    };
+    if num_tokens == 0 {
+        return Ok(TokensResponse {
+            tokens: vec![],
+        });
     }
-    Ok(TokensResponse { tokens })
+
+    let is_enumerable = querier.supports_interface(
+        env_addr.to_string(),
+        erc_addr.clone(),
+        ERC721_ENUMERABLE_ID.to_string()
+    )?.supported;
+    if !is_enumerable {
+        // If collection is nonenumerable, there is only one gas-inefficient
+        // way to fetch tokens.
+        return query_tokens_nonenumerable(
+            deps,
+            env_addr,
+            num_tokens,
+            start_after_id,
+            last_token_id,
+            limit,
+            owner,
+        );
+    }
+
+    // Based on total number of tokens in our result set, figure out which
+    // token id to stop our iteration.
+    if owner.is_empty() {
+        last_token_id = match querier.erc721_token_by_index(
+            env_addr.to_string(),
+            erc_addr.clone(),
+            (num_tokens - 1).into(),
+        ) {
+            Ok(res) => Int256::from_str(&res.token_id)?,
+            Err(_) => Int256::from_str(&("-1".to_string()))?,
+        }
+    } else {
+        last_token_id = match querier.erc721_owner_token_by_index(
+            env_addr.to_string(),
+            erc_addr.clone(),
+            owner.to_string(),
+            (num_tokens - 1).into(),
+        ) {
+            Ok(res) => Int256::from_str(&res.token_id)?,
+            Err(_) => Int256::from_str(&("-1".to_string()))?,
+        }
+    }
+
+    // For enumerable tokens, there are certain instances where it is more
+    // efficient to enumerate using query_tokens_nonenumerable (i.e. iterating
+    // directly with token ids rather than by token indexes). This can happen
+    // when start_after_id is provided and when:
+    // `last token id - start after id < number of tokens in the result set`
+    //
+    // This is because in the worst case for query_tokens_nonenumerable, we
+    // will iterate from start_after_id until last_token_id. In the worst case
+    // for query_tokens_enumerable, we will iterate from token index 0 until
+    // the total supply count.
+    if last_token_id >= Int256::zero() &&
+        start_after_id >= Int256::zero() &&
+        last_token_id - start_after_id < num_tokens.into() {
+        return query_tokens_nonenumerable(
+            deps,
+            env_addr,
+            num_tokens,
+            start_after_id,
+            last_token_id,
+            limit,
+            owner,
+        );
+    }
+    query_tokens_enumerable(
+        deps,
+        env_addr,
+        num_tokens,
+        start_after_id,
+        limit,
+        owner,
+    )
 }
 
 pub fn query_all_tokens(
@@ -382,6 +446,86 @@ pub fn query_all_tokens(
     limit: Option<u32>,
 ) -> StdResult<TokensResponse> {
     query_tokens(deps, env, "".to_string(), start_after, limit)
+}
+
+fn query_tokens_nonenumerable(
+    deps: Deps<EvmQueryWrapper>,
+    env_addr: String,
+    num_tokens: u64,
+    start_after_id: Int256,
+    last_token_id: Int256,
+    limit: usize,
+    owner: String,
+) -> StdResult<TokensResponse> {
+    let erc_addr = ERC721_ADDRESS.load(deps.storage)?;
+    let querier = EvmQuerier::new(&deps.querier);
+    let mut tokens: Vec<String> = vec![];
+    let mut cur = start_after_id + Int256::one();
+    let mut counter = 0;
+    while counter < num_tokens && tokens.len() < limit {
+        if last_token_id >= Int256::zero() && cur > last_token_id {
+            // cursor has exceeded last token id. stop
+            break;
+        }
+        let cur_str = cur.to_string();
+        let t_owner = match querier.erc721_owner(
+            env_addr.to_string(),
+            erc_addr.clone(),
+            cur_str.to_string(),
+        ) {
+            Ok(res) => res.owner,
+            Err(_) => "".to_string(),
+        };
+        if t_owner != "" {
+            counter += 1;
+            if owner.is_empty() || t_owner == owner {
+                tokens.push(cur_str);
+            }
+        }
+        cur += Int256::one();
+    }
+    Ok(TokensResponse { tokens })
+}
+
+fn query_tokens_enumerable(
+    deps: Deps<EvmQueryWrapper>,
+    env_addr: String,
+    num_tokens: u64,
+    start_after_id: Int256,
+    limit: usize,
+    owner: String,
+) -> StdResult<TokensResponse> {
+    let erc_addr = ERC721_ADDRESS.load(deps.storage)?;
+    let querier = EvmQuerier::new(&deps.querier);
+    let mut tokens: Vec<String> = vec![];
+    let mut index = 0;
+    while index < num_tokens && tokens.len() < limit {
+        let token_id = if owner.is_empty() {
+            match querier.erc721_token_by_index(
+                env_addr.to_string(),
+                erc_addr.clone(),
+                index.into(),
+            ) {
+                Ok(res) => Int256::from_str(&res.token_id)?,
+                Err(_) => Int256::from_str(&("-1".to_string()))?,
+            }
+        } else {
+            match querier.erc721_owner_token_by_index(
+                env_addr.to_string(),
+                erc_addr.clone(),
+                owner.to_string(),
+                index.into(),
+            ) {
+                Ok(res) => Int256::from_str(&res.token_id)?,
+                Err(_) => Int256::from_str(&("-1".to_string()))?,
+            }
+        };
+        if token_id >= Int256::zero() && token_id > start_after_id {
+            tokens.push(token_id.to_string());
+        }
+        index += 1;
+    }
+    Ok(TokensResponse { tokens })
 }
 
 pub fn query_royalty_info(
@@ -438,5 +582,15 @@ pub fn query_num_tokens(deps: Deps<EvmQueryWrapper>, env: Env) -> StdResult<NumT
         .erc721_total_supply(env.clone().contract.address.into_string(), erc_addr.clone())?;
     Ok(NumTokensResponse {
         count: res.supply.u128() as u64,
+    })
+}
+
+pub fn query_balance_of(deps: Deps<EvmQueryWrapper>, env: Env, owner: String) -> StdResult<NumTokensResponse> {
+    let erc_addr = ERC721_ADDRESS.load(deps.storage)?;
+    let querier = EvmQuerier::new(&deps.querier);
+    let res = querier
+        .erc721_balance_of(env.clone().contract.address.into_string(), erc_addr.clone(), owner.to_string())?;
+    Ok(NumTokensResponse {
+        count: res.balance.u128() as u64,
     })
 }

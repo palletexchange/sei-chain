@@ -1,6 +1,6 @@
 use cosmwasm_std::{QuerierWrapper, StdResult, Uint128};
 
-use crate::msg::{Route, EvmQuery, EvmQueryWrapper, ErcPayloadResponse, Erc721OwnerResponse, Erc721ApprovedResponse, Erc721IsApprovedForAllResponse, Erc721NameSymbolResponse, Erc721UriResponse, Erc721RoyaltyInfoResponse, SupportsInterfaceResponse, Erc721TotalSupplyResponse};
+use crate::msg::{Route, EvmQuery, EvmQueryWrapper, ErcPayloadResponse, Erc721OwnerResponse, Erc721ApprovedResponse, Erc721IsApprovedForAllResponse, Erc721NameSymbolResponse, Erc721UriResponse, Erc721BalanceOfResponse, Erc721RoyaltyInfoResponse, SupportsInterfaceResponse, Erc721TotalSupplyResponse, Erc721TokenByIndexResponse, Erc721TokenOfOwnerByIndexResponse};
 
 pub const DEFAULT_LIMIT: u32 = 10;
 pub const MAX_LIMIT: u32 = 30;
@@ -58,6 +58,16 @@ impl<'a> EvmQuerier<'a> {
         let request = EvmQueryWrapper {
             route: Route::Evm,
             query_data: EvmQuery::Erc721Uri { caller, contract_address, token_id },
+        }
+        .into();
+
+        self.querier.query(&request)
+    }
+
+    pub fn erc721_balance_of(&self, caller: String, contract_address: String, owner: String,) -> StdResult<Erc721BalanceOfResponse> {
+        let request = EvmQueryWrapper {
+            route: Route::Evm,
+            query_data: EvmQuery::Erc721BalanceOf { caller, contract_address, owner },
         }
         .into();
 
@@ -147,6 +157,46 @@ impl<'a> EvmQuerier<'a> {
             query_data: EvmQuery::Erc721TotalSupply {
                 caller,
                 contract_address,
+            },
+        }
+        .into();
+
+        self.querier.query(&request)
+    }
+
+    pub fn erc721_token_by_index(
+        &self,
+        caller: String,
+        contract_address: String,
+        index: Uint128,
+    ) -> StdResult<Erc721TokenByIndexResponse> {
+        let request = EvmQueryWrapper {
+            route: Route::Evm,
+            query_data: EvmQuery::Erc721TokenByIndex {
+                caller,
+                contract_address,
+                index,
+            },
+        }
+        .into();
+
+        self.querier.query(&request)
+    }
+
+    pub fn erc721_owner_token_by_index(
+        &self,
+        caller: String,
+        contract_address: String,
+        owner: String,
+        index: Uint128,
+    ) -> StdResult<Erc721TokenOfOwnerByIndexResponse> {
+        let request = EvmQueryWrapper {
+            route: Route::Evm,
+            query_data: EvmQuery::Erc721TokenOfOwnerByIndex {
+                caller,
+                contract_address,
+                owner,
+                index,
             },
         }
         .into();
