@@ -66,13 +66,13 @@ contract ERC721 is IERC721 {
     mapping(uint => address) internal _approvals;
 
     // Mapping of owner addresses to an array of token ids they own
-    mapping(address => []uint256) internal _ownerTokenIds;
+    mapping(address => uint256[]) internal _ownerTokenIds;
 
     // Mapping of owner addresses to a mapping of token ids they own to their index
     mapping(address => mapping(uint256 => uint256)) internal _ownerTokenIdToIndex;
 
     // Keeps track of all token ids
-    []uint256 internal _allTokenIds;
+    uint256[] internal _allTokenIds;
 
     // Mapping of token ids to their index
     mapping(uint256 => uint256) internal _allTokenIdsToIndex;
@@ -80,7 +80,7 @@ contract ERC721 is IERC721 {
     // Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) public isApprovedForAll;
 
-    function supportsInterface(bytes4 interfaceId) external pure returns (bool) {
+    function supportsInterface(bytes4 interfaceId) external pure virtual returns (bool) {
         return
             interfaceId == type(IERC721).interfaceId ||
             interfaceId == type(IERC165).interfaceId;
@@ -147,7 +147,7 @@ contract ERC721 is IERC721 {
         _ownerTokenIds[to].push(id);
 
         // remove token from token ids owned by sender
-        _ownerTokenIds[from][_ownerTokenIdToIndex[from][id]] = _ownerTokenIds[from][_ownerTokenIdToIndex[from].length - 1];
+        _ownerTokenIds[from][_ownerTokenIdToIndex[from][id]] = _ownerTokenIds[from][_ownerTokenIds[from].length - 1];
         _ownerTokenIds[from].pop();
         delete _ownerTokenIdToIndex[from][id];
 
@@ -200,13 +200,13 @@ contract ERC721 is IERC721 {
         delete _ownerOf[id];
         delete _approvals[id];
 
-        allTokenIds[_allTokenIdsToIndex[id]] = allTokenIds[allTokenIds.length - 1];
-        allTokenIds.pop();
+        _allTokenIds[_allTokenIdsToIndex[id]] = _allTokenIds[_allTokenIds.length - 1];
+        _allTokenIds.pop();
         delete _allTokenIdsToIndex[id];
 
-        _ownerTokenIds[to][_ownerTokenIdToIndex[to][id]] = _ownerTokenIds[to][_ownerTokenIdToIndex[to].length - 1];
-        _ownerTokenIds[to].pop();
-        delete _ownerTokenIdToIndex[to][id];
+        _ownerTokenIds[owner][_ownerTokenIdToIndex[owner][id]] = _ownerTokenIds[owner][_ownerTokenIds[owner].length - 1];
+        _ownerTokenIds[owner].pop();
+        delete _ownerTokenIdToIndex[owner][id];
 
         emit Transfer(owner, address(0), id);
     }
@@ -279,6 +279,7 @@ contract MyNFTEnumerable is MyNFT {
     function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
         return
             interfaceId == type(IERC721Enumerable).interfaceId ||
-            super.supportsInterface(interfaceId);
+            interfaceId == type(IERC721).interfaceId ||
+            interfaceId == type(IERC165).interfaceId;
     }
 }
