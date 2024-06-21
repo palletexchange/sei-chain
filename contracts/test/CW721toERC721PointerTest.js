@@ -6,28 +6,42 @@ const {expect} = require("chai");
 describe("CW721 to ERC721 Pointer", function () {
     let accounts;
     let erc721;
+    let erc721Enumerable;
     let pointer;
+    let pointerEnumerable;
     let admin;
 
     before(async function () {
         accounts = await setupSigners(await hre.ethers.getSigners())
-        erc721 = await deployEvmContract("MyNFT")
         admin = await getAdmin()
 
+        erc721 = await deployEvmContract("MyNFT")
         pointer = await registerPointerForERC721(await erc721.getAddress())
 
         await (await erc721.mint(accounts[0].evmAddress, 1)).wait()
         await (await erc721.mint(accounts[1].evmAddress, 2)).wait()
         await (await erc721.mint(admin.evmAddress, 3)).wait()
+        await (await erc721.mint(admin.evmAddress, 4)).wait()
+        await (await erc721.mint(admin.evmAddress, 5)).wait()
 
         await (await erc721.approve(accounts[1].evmAddress, 1)).wait();
         await (await erc721.setApprovalForAll(admin.evmAddress, true)).wait();
+
+        erc721Enumerable = await deployEvmContract("MyNFTEnumerable")
+        pointerEnumerable = await registerPointerForERC721(await erc721Enumerable.getAddress())
+
+        await (await erc721Enumerable.mint(accounts[0].evmAddress, 1)).wait()
+        await (await erc721Enumerable.mint(accounts[0].evmAddress, 2)).wait()
+        await (await erc721Enumerable.mint(accounts[0].evmAddress, 3)).wait()
+        await (await erc721Enumerable.mint(accounts[0].evmAddress, 4)).wait()
+        await (await erc721Enumerable.mint(accounts[0].evmAddress, 5)).wait()
+        await (await erc721Enumerable.burn(2)).wait()
     })
 
     describe("validation", function(){
         it("should not allow a pointer to the pointer", async function(){
             try {
-                await deployErc721PointerForCw721(hre.ethers.provider, pointer, 5)
+                await deployErc721PointerForCw721(hre.ethers.provider, pointer)
                 expect.fail(`Expected to be prevented from creating a pointer`);
             } catch(e){
                 expect(e.message).to.include("contract deployment failed");
@@ -75,7 +89,7 @@ describe("CW721 to ERC721 Pointer", function () {
 
         it("should retrieve number of circulating tokens", async function () {
             const result = await queryWasm(pointer, "num_tokens", {});
-            expect(result).to.deep.equal({data:{count:3}});
+            expect(result).to.deep.equal({data:{count:5}});
         });
 
         it("should retrieve contract information", async function () {
@@ -103,7 +117,7 @@ describe("CW721 to ERC721 Pointer", function () {
 
         it("should retrieve all minted NFT token ids", async function () {
             const result = await queryWasm(pointer, "all_tokens", {});
-            expect(result).to.deep.equal({data:{tokens:["1","2","3"]}});
+            expect(result).to.deep.equal({data:{tokens:["1","2","3","4","5"]}});
         });
 
         it("should retrieve list of 1 minted NFT token id after token id 1", async function () {
@@ -113,7 +127,32 @@ describe("CW721 to ERC721 Pointer", function () {
 
         it("should retrieve list of NFT token ids owned by admin", async function () {
             const result = await queryWasm(pointer, "tokens", { owner: admin.seiAddress });
-            expect(result).to.deep.equal({data:{tokens:["3"]}});
+            expect(result).to.deep.equal({data:{tokens:["3","4","5"]}});
+        });
+
+        it("should retrieve list of 1 token id owned by admin after token token id 3 owned by admin", async function () {
+            const result = await queryWasm(pointer, "tokens", { owner: admin.seiAddress, start_after: "3", limit: 1 });
+            expect(result).to.deep.equal({data:{tokens:["4"]}});
+        });
+
+        it("should retrieve all minted NFT token ids", async function () {
+            const result = await queryWasm(pointerEnumerable, "all_tokens", {});
+            expect(result).to.deep.equal({data:{tokens:["1","5","3","4"]}});
+        });
+
+        it("should retrieve list of 1 minted NFT token id after token id 1", async function () {
+            const result = await queryWasm(pointerEnumerable, "all_tokens", { start_after: "1", limit: 1 });
+            expect(result).to.deep.equal({data:{tokens:["5"]}});
+        });
+
+        it("should retrieve list of NFT token ids owned by admin", async function () {
+            const result = await queryWasm(pointerEnumerable, "tokens", { owner: admin.seiAddress });
+            expect(result).to.deep.equal({data:{tokens:["1","5","3","4"]}});
+        });
+
+        it("should retrieve list of 2 token ids owned by admin after token token id 3 owned by admin", async function () {
+            const result = await queryWasm(pointerEnumerable, "tokens", { owner: admin.seiAddress, start_after: "1", limit: 2 });
+            expect(result).to.deep.equal({data:{tokens:["5","3"]}});
         });
     })
 

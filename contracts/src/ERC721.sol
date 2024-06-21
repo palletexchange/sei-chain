@@ -33,6 +33,14 @@ interface IERC721 is IERC165 {
     ) external view returns (bool);
 }
 
+interface IERC721Enumerable {
+    function totalSupply() external view returns (uint256);
+
+    function tokenByIndex(uint256 _index) external view returns (uint256);
+
+    function tokenOfOwnerByIndex(address _owner, uint256 _index) external view returns (uint256);
+}
+
 interface IERC721Receiver {
     function onERC721Received(
         address operator,
@@ -51,17 +59,23 @@ contract ERC721 is IERC721 {
         bool approved
     );
 
-    // Keeps track of current token supply
-    uint256 internal _totalSupply = 0;
-
     // Mapping from token ID to owner address
     mapping(uint => address) internal _ownerOf;
 
-    // Mapping owner address to token count
-    mapping(address => uint) internal _balanceOf;
-
     // Mapping from token ID to approved address
     mapping(uint => address) internal _approvals;
+
+    // Mapping of owner addresses to an array of token ids they own
+    mapping(address => []uint256) internal _ownerTokenIds;
+
+    // Mapping of owner addresses to a mapping of token ids they own to their index
+    mapping(address => mapping(uint256 => uint256)) internal _ownerTokenIdToIndex;
+
+    // Keeps track of all token ids
+    []uint256 internal _allTokenIds;
+
+    // Mapping of token ids to their index
+    mapping(uint256 => uint256) internal _allTokenIdsToIndex;
 
     // Mapping from owner to operator approvals
     mapping(address => mapping(address => bool)) public isApprovedForAll;
@@ -79,11 +93,11 @@ contract ERC721 is IERC721 {
 
     function balanceOf(address owner) external view returns (uint) {
         require(owner != address(0), "owner = zero address");
-        return _balanceOf[owner];
+        return _ownerTokenIds[owner].length;
     }
 
     function totalSupply() external view returns (uint256) {
-        return _totalSupply;
+        return _allTokenIds.length;
     }
 
     function setApprovalForAll(address operator, bool approved) external {
@@ -124,24 +138,30 @@ contract ERC721 is IERC721 {
 
         require(_isApprovedOrOwner(from, msg.sender, id), "not authorized");
 
-        _balanceOf[from]--;
-        _balanceOf[to]++;
         _ownerOf[id] = to;
 
         delete _approvals[id];
+
+        // add token to token ids owned by recipient
+        _ownerTokenIdToIndex[to][id] = _ownerTokenIds[to].length;
+        _ownerTokenIds[to].push(id);
+
+        // remove token from token ids owned by sender
+        _ownerTokenIds[from][_ownerTokenIdToIndex[from][id]] = _ownerTokenIds[from][_ownerTokenIdToIndex[from].length - 1];
+        _ownerTokenIds[from].pop();
+        delete _ownerTokenIdToIndex[from][id];
 
         emit Transfer(from, to, id);
     }
 
     function safeTransferFrom(address from, address to, uint id) external {
-        transferFrom(from, to, id);
-
         require(
             to.code.length == 0 ||
             IERC721Receiver(to).onERC721Received(msg.sender, from, id, "") ==
             IERC721Receiver.onERC721Received.selector,
             "unsafe recipient"
         );
+        transferFrom(from, to, id);
     }
 
     function safeTransferFrom(
@@ -150,23 +170,25 @@ contract ERC721 is IERC721 {
         uint id,
         bytes calldata data
     ) external {
-        transferFrom(from, to, id);
-
         require(
             to.code.length == 0 ||
             IERC721Receiver(to).onERC721Received(msg.sender, from, id, data) ==
             IERC721Receiver.onERC721Received.selector,
             "unsafe recipient"
         );
+        transferFrom(from, to, id);
     }
 
     function _mint(address to, uint id) internal {
         require(to != address(0), "mint to zero address");
         require(_ownerOf[id] == address(0), "already minted");
 
-        _balanceOf[to]++;
-        _totalSupply++;
         _ownerOf[id] = to;
+
+        _allTokenIdsToIndex[id] = _allTokenIds.length;
+        _allTokenIds.push(id);
+        _ownerTokenIdToIndex[to][id] = _ownerTokenIds[to].length;
+        _ownerTokenIds[to].push(id);
 
         emit Transfer(address(0), to, id);
     }
@@ -175,11 +197,16 @@ contract ERC721 is IERC721 {
         address owner = _ownerOf[id];
         require(owner != address(0), "not minted");
 
-        _balanceOf[owner] -= 1;
-        _totalSupply--;
-
         delete _ownerOf[id];
         delete _approvals[id];
+
+        allTokenIds[_allTokenIdsToIndex[id]] = allTokenIds[allTokenIds.length - 1];
+        allTokenIds.pop();
+        delete _allTokenIdsToIndex[id];
+
+        _ownerTokenIds[to][_ownerTokenIdToIndex[to][id]] = _ownerTokenIds[to][_ownerTokenIdToIndex[to].length - 1];
+        _ownerTokenIds[to].pop();
+        delete _ownerTokenIdToIndex[to][id];
 
         emit Transfer(owner, address(0), id);
     }
@@ -235,5 +262,23 @@ contract MyNFT is ERC721 {
     function royaltyInfo(uint, uint256 salePrice) external pure returns (address receiver, uint256 royaltyAmount) {
         receiver = 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266;
         royaltyAmount = (salePrice * 500) / 10_000;
+    }
+}
+
+contract MyNFTEnumerable is MyNFT {
+    function tokenByIndex(uint256 index) external view returns (uint256) {
+        require(index < _allTokenIds.length, "Index out of range");
+        return _allTokenIds[index];
+    }
+
+    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
+        require(index < _ownerTokenIds[owner].length, "Index out of range");
+        return _ownerTokenIds[owner][index];
+    }
+
+    function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
+        return
+            interfaceId == type(IERC721Enumerable).interfaceId ||
+            super.supportsInterface(interfaceId);
     }
 }

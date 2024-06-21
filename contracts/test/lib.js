@@ -32,7 +32,9 @@ const ABI = {
         "function setApprovalForAll(address operator, bool _approved) returns (bool)",
         "function transferFrom(address from, address to, uint256 tokenId) returns (bool)",
         "function safeTransferFrom(address from, address to, uint256 tokenId) returns (bool)",
-        "function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) returns (bool)"
+        "function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) returns (bool)",
+        "function tokenByIndex(uint256 _index) view returns (uint256)",
+        "function tokenOfOwnerByIndex(address _owner, uint256 _index) view returns (uint256)"
     ],
 }
 
