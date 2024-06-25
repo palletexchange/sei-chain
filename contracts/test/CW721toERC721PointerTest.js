@@ -135,22 +135,22 @@ describe("CW721 to ERC721 Pointer", function () {
             expect(result).to.deep.equal({data:{tokens:["4"]}});
         });
 
-        it("should retrieve all minted NFT token ids", async function () {
+        it("should retrieve all minted NFT token ids for enumerable contract", async function () {
             const result = await queryWasm(pointerEnumerable, "all_tokens", {});
             expect(result).to.deep.equal({data:{tokens:["1","5","3","4"]}});
         });
 
-        it("should retrieve list of 1 minted NFT token id after token id 1", async function () {
+        it("should retrieve list of 1 minted NFT token id after token id 1 for enumerable contract", async function () {
             const result = await queryWasm(pointerEnumerable, "all_tokens", { start_after: "1", limit: 1 });
             expect(result).to.deep.equal({data:{tokens:["5"]}});
         });
 
-        it("should retrieve list of NFT token ids owned by admin", async function () {
+        it("should retrieve list of NFT token ids owned by admin for enumerable contract", async function () {
             const result = await queryWasm(pointerEnumerable, "tokens", { owner: admin.seiAddress });
             expect(result).to.deep.equal({data:{tokens:["1","5","3","4"]}});
         });
 
-        it("should retrieve list of 2 token ids owned by admin after token token id 3 owned by admin", async function () {
+        it("should retrieve list of 2 token ids owned by admin after token token id 3 owned by admin for enumerable contract", async function () {
             const result = await queryWasm(pointerEnumerable, "tokens", { owner: admin.seiAddress, start_after: "1", limit: 2 });
             expect(result).to.deep.equal({data:{tokens:["5","3"]}});
         });
