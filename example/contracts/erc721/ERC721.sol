@@ -74,6 +74,14 @@ contract DummyERC721 is IERC721 {
         royaltyAmount = (salePrice * 500) / 10_000;
     }
 
+    function tokenByIndex(uint256 index) external view returns (uint256) {
+        return index;
+    }
+
+    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256) {
+        return index;
+    }
+
     function transferFrom(address from, address to, uint256 tokenId) public override {}
 
     function safeTransferFrom(address from, address to, uint256 tokenId) public override {}

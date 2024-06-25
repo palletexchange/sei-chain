@@ -227,6 +227,22 @@ func TestHandleERC721NameSymbol(t *testing.T) {
 	require.Equal(t, string(res2), "{\"name\":\"DummyERC721\",\"symbol\":\"DUMMY\"}")
 }
 
+func TestHandleERC721BalanceOf(t *testing.T) {
+	k, ctx := testkeeper.MockEVMKeeper()
+	privKey := testkeeper.MockPrivateKey()
+	res, _ := deployContract(t, ctx, k, "../../../../example/contracts/erc721/DummyERC721.bin", privKey)
+	addr1, e1 := testkeeper.MockAddressPair()
+	k.SetAddressMapping(ctx, addr1, e1)
+	receipt, err := k.GetReceipt(ctx, common.HexToHash(res.Hash))
+	require.Nil(t, err)
+	contractAddr := common.HexToAddress(receipt.ContractAddress)
+	h := wasm.NewEVMQueryHandler(k)
+	res2, err := h.HandleERC721BalanceOf(ctx, addr1.String(), contractAddr.String(), addr1.String())
+	require.Nil(t, err)
+	require.NotEmpty(t, res2)
+	require.Equal(t, string(res2), "{\"balance\":\"50\"}")
+}
+
 func TestHandleERC721TokenURI(t *testing.T) {
 	k, ctx := testkeeper.MockEVMKeeper()
 	privKey := testkeeper.MockPrivateKey()
@@ -257,6 +273,42 @@ func TestHandleERC721RoyaltyInfo(t *testing.T) {
 	require.Nil(t, err)
 	require.NotEmpty(t, res2)
 	match, _ := regexp.MatchString(`{"receiver":"sei\w{39}","royalty_amount":"5"}`, string(res2))
+	require.True(t, match)
+}
+
+func TestHandleERC721TokenByIndex(t *testing.T) {
+	k, ctx := testkeeper.MockEVMKeeper()
+	privKey := testkeeper.MockPrivateKey()
+	res, _ := deployContract(t, ctx, k, "../../../../example/contracts/erc721/DummyERC721.bin", privKey)
+	addr1, e1 := testkeeper.MockAddressPair()
+	k.SetAddressMapping(ctx, addr1, e1)
+	receipt, err := k.GetReceipt(ctx, common.HexToHash(res.Hash))
+	require.Nil(t, err)
+	contractAddr := common.HexToAddress(receipt.ContractAddress)
+	h := wasm.NewEVMQueryHandler(k)
+	index := types.NewInt(15)
+	res2, err := h.HandleERC721TokenByIndex(ctx, addr1.String(), contractAddr.String(), &index)
+	require.Nil(t, err)
+	require.NotEmpty(t, res2)
+	match, _ := regexp.MatchString(`{"token_id":"15"}`, string(res2))
+	require.True(t, match)
+}
+
+func TestHandleERC721TokenOfOwnerByIndex(t *testing.T) {
+	k, ctx := testkeeper.MockEVMKeeper()
+	privKey := testkeeper.MockPrivateKey()
+	res, _ := deployContract(t, ctx, k, "../../../../example/contracts/erc721/DummyERC721.bin", privKey)
+	addr1, e1 := testkeeper.MockAddressPair()
+	k.SetAddressMapping(ctx, addr1, e1)
+	receipt, err := k.GetReceipt(ctx, common.HexToHash(res.Hash))
+	require.Nil(t, err)
+	contractAddr := common.HexToAddress(receipt.ContractAddress)
+	h := wasm.NewEVMQueryHandler(k)
+	index := types.NewInt(15)
+	res2, err := h.HandleERC721TokenOfOwnerByIndex(ctx, addr1.String(), contractAddr.String(), addr1.String(), &index)
+	require.Nil(t, err)
+	require.NotEmpty(t, res2)
+	match, _ := regexp.MatchString(`{"token_id":"15"}`, string(res2))
 	require.True(t, match)
 }
 
