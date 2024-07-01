@@ -17,6 +17,7 @@ import (
 	"github.com/sei-protocol/sei-chain/utils"
 	"github.com/sei-protocol/sei-chain/x/evm/artifacts/cw20"
 	"github.com/sei-protocol/sei-chain/x/evm/artifacts/cw721"
+	"github.com/sei-protocol/sei-chain/x/evm/artifacts/cw1155"
 	"github.com/sei-protocol/sei-chain/x/evm/artifacts/native"
 	"github.com/sei-protocol/sei-chain/x/evm/types"
 )
@@ -26,6 +27,7 @@ const (
 	AddNativePointer = "addNativePointer"
 	AddCW20Pointer   = "addCW20Pointer"
 	AddCW721Pointer  = "addCW721Pointer"
+	AddCW1155Pointer  = "addCW1155Pointer"
 )
 
 const PointerAddress = "0x000000000000000000000000000000000000100b"
@@ -43,6 +45,7 @@ type PrecompileExecutor struct {
 	AddNativePointerID []byte
 	AddCW20PointerID   []byte
 	AddCW721PointerID  []byte
+	AddCW1155PointerID []byte
 }
 
 func ABI() (*ethabi.ABI, error) {
@@ -78,6 +81,8 @@ func NewPrecompile(evmKeeper pcommon.EVMKeeper, bankKeeper pcommon.BankKeeper, w
 			p.AddCW20PointerID = m.ID
 		case AddCW721Pointer:
 			p.AddCW721PointerID = m.ID
+		case AddCW1155Pointer:
+			p.AddCW1155PointerID = m.ID
 		}
 	}
 
@@ -99,6 +104,8 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *ethabi.Method, call
 		return p.AddCW20(ctx, method, caller, args, value, evm, suppliedGas)
 	case AddCW721Pointer:
 		return p.AddCW721(ctx, method, caller, args, value, evm, suppliedGas)
+	case AddCW1155Pointer:
+		return p.AddCW1155(ctx, method, caller, args, value, evm, suppliedGas)
 	default:
 		err = fmt.Errorf("unknown method %s", method.Name)
 	}
@@ -270,6 +277,60 @@ func (p PrecompileExecutor) AddCW721(ctx sdk.Context, method *ethabi.Method, cal
 		types.EventTypePointerRegistered, sdk.NewAttribute(types.AttributeKeyPointerType, "cw721"),
 		sdk.NewAttribute(types.AttributeKeyPointerAddress, contractAddr.Hex()), sdk.NewAttribute(types.AttributeKeyPointee, cwAddr),
 		sdk.NewAttribute(types.AttributeKeyPointerVersion, fmt.Sprintf("%d", cw721.CurrentVersion))))
+	ret, err = method.Outputs.Pack(contractAddr)
+	return
+}
+
+func (p PrecompileExecutor) AddCW1155(ctx sdk.Context, method *ethabi.Method, caller common.Address, args []interface{}, value *big.Int, evm *vm.EVM, suppliedGas uint64) (ret []byte, remainingGas uint64, err error) {
+	if err := pcommon.ValidateNonPayable(value); err != nil {
+		return nil, 0, err
+	}
+	if err := pcommon.ValidateArgsLength(args, 1); err != nil {
+		return nil, 0, err
+	}
+	cwAddr := args[0].(string)
+	existingAddr, existingVersion, exists := p.evmKeeper.GetERC1155CW1155Pointer(ctx, cwAddr)
+	if exists && existingVersion >= cw1155.CurrentVersion {
+		return nil, 0, fmt.Errorf("pointer at %s with version %d exists when trying to set pointer for version %d", existingAddr.Hex(), existingVersion, cw1155.CurrentVersion)
+	}
+	cwAddress, err := sdk.AccAddressFromBech32(cwAddr)
+	if err != nil {
+		return nil, 0, err
+	}
+	res, err := p.wasmdKeeper.QuerySmart(ctx, cwAddress, []byte("{\"contract_info\":{}}"))
+	if err != nil {
+		return nil, 0, err
+	}
+	formattedRes := map[string]interface{}{}
+	if err := json.Unmarshal(res, &formattedRes); err != nil {
+		return nil, 0, err
+	}
+	name := formattedRes["name"].(string)
+	symbol := formattedRes["symbol"].(string)
+	constructorArguments := []interface{}{
+		cwAddr, name, symbol,
+	}
+
+	packedArgs, err := cw1155.GetParsedABI().Pack("", constructorArguments...)
+	if err != nil {
+		panic(err)
+	}
+	bin := append(cw1155.GetBin(), packedArgs...)
+	if value == nil {
+		value = utils.Big0
+	}
+	ret, contractAddr, remainingGas, err := evm.Create(vm.AccountRef(caller), bin, suppliedGas, value)
+	if err != nil {
+		return
+	}
+	err = p.evmKeeper.SetERC1155CW1155Pointer(ctx, cwAddr, contractAddr)
+	if err != nil {
+		return
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypePointerRegistered, sdk.NewAttribute(types.AttributeKeyPointerType, "cw1155"),
+		sdk.NewAttribute(types.AttributeKeyPointerAddress, contractAddr.Hex()), sdk.NewAttribute(types.AttributeKeyPointee, cwAddr),
+		sdk.NewAttribute(types.AttributeKeyPointerVersion, fmt.Sprintf("%d", cw1155.CurrentVersion))))
 	ret, err = method.Outputs.Pack(contractAddr)
 	return
 }
